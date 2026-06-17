@@ -343,6 +343,12 @@ const App = {
       return;
     }
 
+    const unassigned = roomData?.unassigned_players || {};
+    const teams = roomData?.teams || {};
+    const isPlayerInTeam = Object.values(teams).some(team => 
+      team.players && team.players.some(p => p.id === guestPlayerId)
+    );
+
     // If guest is not in unassigned list and not in any team, their registration is gone (kicked, deleted, or reset).
     // Prompt them to register a name again.
     if (!isAdmin && guestPlayerId && !unassigned[guestPlayerId] && !isPlayerInTeam) {
