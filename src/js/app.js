@@ -99,7 +99,12 @@ const App = {
       () => {
         StorageService.clearTournamentState();
         tournament.loadState(null);
-        this.renderLocalPlayersManager();
+        if (currentSettings.mode === 'firebase' && CloudDb.isConfigured()) {
+          CloudDb.resetTournament(currentSettings.tournamentId)
+            .catch(err => console.error("Error resetting remote tournament:", err));
+        } else {
+          this.renderLocalPlayersManager();
+        }
       },
       // Rename player callback
       (id, name) => {
@@ -317,8 +322,19 @@ const App = {
       team.players.some(p => p.id === guestPlayerId)
     );
 
-    if (!unassigned[guestPlayerId] && !isPlayerInTeam) {
-      CloudDb.registerPlayer(currentSettings.tournamentId, guestPlayerId, guestPlayerName);
+    if (!isAdmin && guestPlayerId && !unassigned[guestPlayerId] && !isPlayerInTeam) {
+      const totalLobbyParticipants = Object.keys(unassigned).length + Object.keys(teams).length;
+      if (totalLobbyParticipants === 0) {
+        CloudDb.registerPlayer(currentSettings.tournamentId, guestPlayerId, guestPlayerName);
+      } else {
+        // Player was removed/kicked by the admin. Clear identity so they see the register prompt again.
+        guestPlayerId = null;
+        guestPlayerName = null;
+        localStorage.removeItem('guest_player_id');
+        localStorage.removeItem('guest_player_name');
+        this.renderPhase1(roomData);
+        return;
+      }
     }
 
     // 2. Render invitation state triggers

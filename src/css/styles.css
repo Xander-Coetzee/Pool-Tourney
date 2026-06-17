@@ -1457,3 +1457,119 @@ input[type="text"]:focus {
   color: var(--color-muted);
 }
 
+/* Mobile round selection tabs and layout */
+.bracket-round-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--glass-border);
+  -webkit-overflow-scrolling: touch;
+}
+
+.bracket-round-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.round-tab-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  color: var(--color-muted);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-smooth);
+}
+
+.round-tab-btn:hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.round-tab-btn.active {
+  background: rgba(102, 252, 241, 0.15);
+  color: var(--neon-blue);
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 8px rgba(102, 252, 241, 0.3);
+}
+
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: flex !important;
+  }
+  
+  body {
+    overflow-y: hidden;
+    height: 100vh;
+  }
+
+  .app-container {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem;
+  }
+
+  .tab-panel.active {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 3rem;
+  }
+
+  .bracket-scroll-wrapper {
+    flex-direction: column;
+    overflow-x: hidden;
+    gap: 1rem;
+    min-height: auto;
+    max-height: calc(100vh - 220px);
+    padding: 0.5rem 0;
+  }
+
+  .bracket-section {
+    width: 100%;
+  }
+
+  .bracket-tree {
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .bracket-round {
+    width: 100%;
+    min-width: 100%;
+    display: none; /* Hide other rounds */
+  }
+
+  .bracket-round.mobile-active-round {
+    display: flex !important;
+  }
+
+  .round-header {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .round-matches {
+    gap: 0.75rem;
+    justify-content: flex-start;
+  }
+
+  .match-card {
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 0.25rem;
+  }
+}
+

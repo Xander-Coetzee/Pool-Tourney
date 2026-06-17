@@ -22,6 +22,35 @@ export const BracketRenderer = {
 
   setupEventDelegation() {
     const handleDelegation = (e) => {
+      // Check for round tab click
+      const tabBtn = e.target.closest('.round-tab-btn');
+      if (tabBtn) {
+        e.stopPropagation();
+        const roundId = tabBtn.getAttribute('data-round');
+        this.selectedMobileRoundId = roundId;
+        
+        // Update tab buttons active class
+        const buttons = this.bracketContainer.querySelectorAll('.round-tab-btn');
+        buttons.forEach(btn => {
+          if (btn.getAttribute('data-round') === roundId) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+
+        // Update rounds visibility class
+        const rounds = this.bracketContainer.querySelectorAll('.bracket-round');
+        rounds.forEach(round => {
+          if (round.getAttribute('data-round') === roundId) {
+            round.classList.add('mobile-active-round');
+          } else {
+            round.classList.remove('mobile-active-round');
+          }
+        });
+        return;
+      }
+
       // Check for Start Match button
       const btnStart = e.target.closest('.btn-action-start');
       if (btnStart) {
@@ -64,7 +93,45 @@ export const BracketRenderer = {
     }
 
     const k = Math.log2(size);
-    let html = '<div class="bracket-scroll-wrapper">';
+    
+    // Collect rounds for mobile tabs
+    const rounds = [];
+    for (let r = 1; r <= k; r++) {
+      rounds.push({ id: `w-${r}`, label: `Winners R${r}` });
+    }
+    if (size > 2) {
+      const losersRounds = 2 * k - 2;
+      for (let lr = 1; lr <= losersRounds; lr++) {
+        rounds.push({ id: `l-${lr}`, label: `Losers R${lr}` });
+      }
+    }
+    rounds.push({ id: `gf`, label: `Finals` });
+
+    // Set initial selected mobile round if not set or if not valid anymore
+    const isValidRound = rounds.some(r => r.id === this.selectedMobileRoundId);
+    if (!this.selectedMobileRoundId || !isValidRound) {
+      const activeRound = rounds.find(round => {
+        if (this.activeMatchId) {
+          if (this.activeMatchId.startsWith('gf-') && round.id === 'gf') return true;
+          return this.activeMatchId.startsWith(round.id + '-');
+        }
+        return false;
+      });
+      this.selectedMobileRoundId = activeRound ? activeRound.id : rounds[0].id;
+    }
+
+    let html = '<div class="bracket-round-tabs mobile-only">';
+    rounds.forEach(round => {
+      const isSelected = round.id === this.selectedMobileRoundId;
+      html += `
+        <button class="round-tab-btn ${isSelected ? 'active' : ''}" data-round="${round.id}">
+          ${round.label}
+        </button>
+      `;
+    });
+    html += '</div>';
+
+    html += '<div class="bracket-scroll-wrapper">';
 
     // --- WINNERS BRACKET ---
     html += `
@@ -75,8 +142,10 @@ export const BracketRenderer = {
 
     for (let r = 1; r <= k; r++) {
       const matchCount = size / Math.pow(2, r);
+      const isSelected = `w-${r}` === this.selectedMobileRoundId;
+      const activeClass = isSelected ? 'mobile-active-round' : '';
       html += `
-        <div class="bracket-round winners-round">
+        <div class="bracket-round winners-round ${activeClass}" data-round="w-${r}">
           <h4 class="round-header">Round ${r}</h4>
           <div class="round-matches">
       `;
@@ -105,9 +174,11 @@ export const BracketRenderer = {
       for (let lr = 1; lr <= losersRounds; lr++) {
         const m = Math.ceil(lr / 2);
         const matchCount = size / Math.pow(2, m + 1);
+        const isSelected = `l-${lr}` === this.selectedMobileRoundId;
+        const activeClass = isSelected ? 'mobile-active-round' : '';
 
         html += `
-          <div class="bracket-round losers-round">
+          <div class="bracket-round losers-round ${activeClass}" data-round="l-${lr}">
             <h4 class="round-header">L-Round ${lr}</h4>
             <div class="round-matches">
         `;
@@ -126,11 +197,13 @@ export const BracketRenderer = {
     }
 
     // --- GRAND FINALS ---
+    const isGfSelected = 'gf' === this.selectedMobileRoundId;
+    const gfActiveClass = isGfSelected ? 'mobile-active-round' : '';
     html += `
       <div class="bracket-section">
         <h3 class="section-title text-neon-green">Grand Finals</h3>
         <div class="bracket-tree gf-tree">
-          <div class="bracket-round gf-round">
+          <div class="bracket-round gf-round ${gfActiveClass}" data-round="gf">
             <h4 class="round-header">Finals</h4>
             <div class="round-matches">
     `;
