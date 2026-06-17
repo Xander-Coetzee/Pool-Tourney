@@ -194,10 +194,13 @@ const App = {
           syncDot.className = 'status-dot active';
           syncText.textContent = `Sync Room: ${currentSettings.tournamentId}`;
 
-          // Secure guest identity lock based on Firebase Auth UID (only if they have registered a name)
+          // Secure guest identity lock based on Firebase Auth UID (only if they have registered a name and auth is enabled)
           if (!isAdmin && guestPlayerName) {
-            guestPlayerId = CloudDb.getUid();
-            localStorage.setItem('guest_player_id', guestPlayerId);
+            const secureUid = CloudDb.getUid();
+            if (secureUid) {
+              guestPlayerId = secureUid;
+              localStorage.setItem('guest_player_id', guestPlayerId);
+            }
           }
 
           // Subscribe to entire room node
@@ -247,7 +250,7 @@ const App = {
     if (!roomData) {
       if (isAdmin) {
         // Claim ownership of the room immediately
-        const adminUid = CloudDb.getUid();
+        const adminUid = CloudDb.getUid() || 'host-admin';
         const localState = StorageService.getTournamentState();
         if (localState && localState.isStarted) {
           // Upload local state to initialize remote database and claim ownership
@@ -330,7 +333,7 @@ const App = {
         const name = nameInput.value.trim();
         if (!name) return;
 
-        guestPlayerId = CloudDb.isConfigured() ? CloudDb.getUid() : `g-${Date.now()}`;
+        guestPlayerId = (CloudDb.isConfigured() && CloudDb.getUid()) || `g-${Date.now()}`;
         guestPlayerName = name;
         localStorage.setItem('guest_player_id', guestPlayerId);
         localStorage.setItem('guest_player_name', name);

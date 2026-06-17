@@ -21,8 +21,15 @@ export const CloudDb = {
     try {
       app = initializeApp(config, "party-tournament-app-" + Date.now());
       db = getDatabase(app);
-      const auth = getAuth(app);
-      await signInAnonymously(auth);
+      
+      // Try to authenticate anonymously, but don't fail initialization if it's not enabled
+      try {
+        const auth = getAuth(app);
+        await signInAnonymously(auth);
+      } catch (authError) {
+        console.warn("Firebase Anonymous Auth not enabled in Firebase Console. Falling back to local identity system.", authError);
+      }
+      
       return true;
     } catch (e) {
       console.error("Firebase initialization failed:", e);
@@ -50,8 +57,12 @@ export const CloudDb = {
 
   getUid() {
     if (!app) return null;
-    const auth = getAuth(app);
-    return auth.currentUser ? auth.currentUser.uid : null;
+    try {
+      const auth = getAuth(app);
+      return auth.currentUser ? auth.currentUser.uid : null;
+    } catch (e) {
+      return null;
+    }
   },
 
   async initializeRoom(roomId, adminUid) {
@@ -67,10 +78,17 @@ export const CloudDb = {
     try {
       testApp = initializeApp(config, "test-instance-" + Date.now());
       const testDb = getDatabase(testApp);
-      const testAuth = getAuth(testApp);
-      await signInAnonymously(testAuth);
       
-      const testRef = ref(testDb, `test-connection/${testAuth.currentUser.uid}`);
+      let testUid = `test-${Date.now()}`;
+      try {
+        const testAuth = getAuth(testApp);
+        await signInAnonymously(testAuth);
+        testUid = testAuth.currentUser.uid;
+      } catch (authError) {
+        console.warn("Firebase Anonymous Auth not enabled during test connection.", authError);
+      }
+      
+      const testRef = ref(testDb, `test-connection/${testUid}`);
       await set(testRef, { status: "success", timestamp: Date.now() });
       await remove(testRef); // Clean up
       return true;
