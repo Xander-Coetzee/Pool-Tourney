@@ -248,6 +248,23 @@ export const CloudDb = {
     return update(ref(db), updates);
   },
 
+  async pairPlayers(roomId, p1Id, p1Name, p2Id, p2Name) {
+    if (!db) return;
+    const teamId = `team-${Date.now()}`;
+    const updates = {};
+    updates[`rooms/${roomId}/unassigned_players/${p1Id}`] = null;
+    updates[`rooms/${roomId}/unassigned_players/${p2Id}`] = null;
+    updates[`rooms/${roomId}/teams/${teamId}`] = {
+      id: teamId,
+      name: `${p1Name} & ${p2Name}`,
+      players: [
+        { id: p1Id, name: p1Name },
+        { id: p2Id, name: p2Name }
+      ]
+    };
+    return update(ref(db), updates);
+  },
+
   async renameUnassignedPlayer(roomId, playerId, newName) {
     if (!db) return;
     const playerRef = ref(db, `rooms/${roomId}/unassigned_players/${playerId}/name`);

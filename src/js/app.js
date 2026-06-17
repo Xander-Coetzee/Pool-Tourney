@@ -21,6 +21,7 @@ const App = {
   init() {
     this.previousPhase = 1;
     this.activeMatchId = null;
+    this.pendingPairPlayerId = null;
     this.setupTabs();
     this.setupSettings();
     this.setupLocalPlayerManager();
@@ -404,7 +405,11 @@ const App = {
                 let actionsHTML = '';
                 
                 if (isAdmin) {
+                  const isPending = App.pendingPairPlayerId === p.id;
                   actionsHTML = `
+                    <button class="btn-sm btn-invite btn-action-pair ${isPending ? 'btn-pending' : ''}" data-id="${p.id}" data-name="${escapeHTML(p.name)}" ${isPending ? 'style="background: #e67e22; color: #fff; border-color: #d35400 !important;"' : ''}>
+                      ${isPending ? 'Cancel' : 'Pair'}
+                    </button>
                     <button class="btn-sm btn-solo btn-action-solo" data-id="${p.id}" data-name="${escapeHTML(p.name)}">Make Solo</button>
                     <button class="btn-sm btn-remove btn-action-remove" data-id="${p.id}">&times; Remove</button>
                   `;
@@ -473,10 +478,10 @@ const App = {
       </div>
     `;
 
-    this.bindPhase1Events(playerList, teamList);
+    this.bindPhase1Events(playerList, teamList, roomData);
   },
 
-  bindPhase1Events(playerList, teamList) {
+  bindPhase1Events(playerList, teamList, roomData) {
     // Clone node to clear accumulated event listeners
     const oldView = document.getElementById('player-manager-view');
     const view = oldView.cloneNode(true);
@@ -512,6 +517,30 @@ const App = {
 
     // List button delegation
     view.addEventListener('click', (e) => {
+      // Pair Player Click
+      const btnPair = e.target.closest('.btn-action-pair');
+      if (btnPair) {
+        const id = btnPair.getAttribute('data-id');
+        const name = btnPair.getAttribute('data-name');
+        
+        if (App.pendingPairPlayerId === null) {
+          App.pendingPairPlayerId = id;
+          this.renderPhase1(roomData);
+        } else if (App.pendingPairPlayerId === id) {
+          App.pendingPairPlayerId = null;
+          this.renderPhase1(roomData);
+        } else {
+          const p1Id = App.pendingPairPlayerId;
+          const playerA = playerList.find(p => p.id === p1Id);
+          if (playerA) {
+            CloudDb.pairPlayers(currentSettings.tournamentId, p1Id, playerA.name, id, name)
+              .catch(err => console.error("Error manual pairing players:", err));
+          }
+          App.pendingPairPlayerId = null;
+        }
+        return;
+      }
+
       // Invite to team click
       const btnInvite = e.target.closest('.btn-action-invite');
       if (btnInvite) {
