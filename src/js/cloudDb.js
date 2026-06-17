@@ -1,5 +1,6 @@
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getDatabase, ref, set, onValue, off, update, remove } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 
 let app = null;
 let db = null;
@@ -10,7 +11,7 @@ export const CloudDb = {
     return app !== null;
   },
 
-  initialize(config) {
+  async initialize(config) {
     if (app) {
       this.disconnect();
     }
@@ -20,6 +21,8 @@ export const CloudDb = {
     try {
       app = initializeApp(config, "party-tournament-app-" + Date.now());
       db = getDatabase(app);
+      const auth = getAuth(app);
+      await signInAnonymously(auth);
       return true;
     } catch (e) {
       console.error("Firebase initialization failed:", e);
@@ -45,13 +48,31 @@ export const CloudDb = {
     db = null;
   },
 
+  getUid() {
+    if (!app) return null;
+    const auth = getAuth(app);
+    return auth.currentUser ? auth.currentUser.uid : null;
+  },
+
+  async initializeRoom(roomId, adminUid) {
+    if (!db) return;
+    const updates = {};
+    updates[`rooms/${roomId}/adminUid`] = adminUid;
+    updates[`rooms/${roomId}/phase`] = 1;
+    return update(ref(db), updates);
+  },
+
   async testConnection(config) {
     let testApp = null;
     try {
       testApp = initializeApp(config, "test-instance-" + Date.now());
       const testDb = getDatabase(testApp);
-      const testRef = ref(testDb, `test-connection/${Date.now()}`);
+      const testAuth = getAuth(testApp);
+      await signInAnonymously(testAuth);
+      
+      const testRef = ref(testDb, `test-connection/${testAuth.currentUser.uid}`);
       await set(testRef, { status: "success", timestamp: Date.now() });
+      await remove(testRef); // Clean up
       return true;
     } catch (e) {
       console.error("Firebase connection test failed:", e);

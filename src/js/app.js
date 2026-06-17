@@ -177,7 +177,7 @@ const App = {
     }
   },
 
-  initializeConnection() {
+  async initializeConnection() {
     const syncDot = document.getElementById('sync-dot');
     const syncText = document.getElementById('sync-text');
 
@@ -187,24 +187,37 @@ const App = {
       syncDot.className = 'status-dot';
       syncText.textContent = "Connecting to Party Sync...";
 
-      const isConnected = CloudDb.initialize(currentSettings.firebaseConfig);
-      
-      if (isConnected) {
-        syncDot.className = 'status-dot active';
-        syncText.textContent = `Sync Room: ${currentSettings.tournamentId}`;
+      try {
+        const isConnected = await CloudDb.initialize(currentSettings.firebaseConfig);
+        
+        if (isConnected) {
+          syncDot.className = 'status-dot active';
+          syncText.textContent = `Sync Room: ${currentSettings.tournamentId}`;
 
-        // Subscribe to entire room node
-        CloudDb.subscribeToRoom(currentSettings.tournamentId, (roomData) => {
-          isRemoteUpdating = true;
-          this.handleRoomUpdate(roomData);
-          isRemoteUpdating = false;
-        }, (error) => {
-          console.error("Sync error:", error);
+          // Secure guest identity lock based on Firebase Auth UID
+          if (!isAdmin) {
+            guestPlayerId = CloudDb.getUid();
+            localStorage.setItem('guest_player_id', guestPlayerId);
+          }
+
+          // Subscribe to entire room node
+          CloudDb.subscribeToRoom(currentSettings.tournamentId, (roomData) => {
+            isRemoteUpdating = true;
+            this.handleRoomUpdate(roomData);
+            isRemoteUpdating = false;
+          }, (error) => {
+            console.error("Sync error:", error);
+            syncDot.className = 'status-dot';
+            syncText.textContent = "Sync disconnected. Offline.";
+            this.loadLocalFallback();
+          });
+        } else {
           syncDot.className = 'status-dot';
-          syncText.textContent = "Sync disconnected. Offline.";
+          syncText.textContent = "Sync failed. Check credentials.";
           this.loadLocalFallback();
-        });
-      } else {
+        }
+      } catch (err) {
+        console.error("Firebase connection error:", err);
         syncDot.className = 'status-dot';
         syncText.textContent = "Sync failed. Check credentials.";
         this.loadLocalFallback();
@@ -232,17 +245,28 @@ const App = {
   // --- ROOM STATE ENGINE ---
   handleRoomUpdate(roomData) {
     if (!roomData) {
-      // Blank room: render registration screen or lock local state
-      const localState = StorageService.getTournamentState();
-      if (localState && localState.isStarted) {
-        // Upload local state to initialize remote database
-        CloudDb.startTournament(
-          currentSettings.tournamentId,
-          localState.players,
-          localState.matches,
-          localState.size,
-          localState.roundsCount
-        );
+      if (isAdmin) {
+        // Claim ownership of the room immediately
+        const adminUid = CloudDb.getUid();
+        const localState = StorageService.getTournamentState();
+        if (localState && localState.isStarted) {
+          // Upload local state to initialize remote database and claim ownership
+          CloudDb.initializeRoom(currentSettings.tournamentId, adminUid)
+            .then(() => {
+              CloudDb.startTournament(
+                currentSettings.tournamentId,
+                localState.players,
+                localState.matches,
+                localState.size,
+                localState.roundsCount
+              );
+            })
+            .catch(err => console.error("Error initializing room with local state:", err));
+        } else {
+          CloudDb.initializeRoom(currentSettings.tournamentId, adminUid).catch(err => {
+            console.error("Error initializing room ownership:", err);
+          });
+        }
       } else {
         this.updateTabVisibility(1);
         this.renderPhase1(null);
@@ -306,7 +330,7 @@ const App = {
         const name = nameInput.value.trim();
         if (!name) return;
 
-        guestPlayerId = `g-${Date.now()}`;
+        guestPlayerId = CloudDb.isConfigured() ? CloudDb.getUid() : `g-${Date.now()}`;
         guestPlayerName = name;
         localStorage.setItem('guest_player_id', guestPlayerId);
         localStorage.setItem('guest_player_name', name);
@@ -316,26 +340,15 @@ const App = {
       return;
     }
 
-    // Auto-register guest to lobby if they reload and aren't in a team yet
-    const unassigned = roomData?.unassigned_players || {};
-    const teams = roomData?.teams || {};
-    const isPlayerInTeam = Object.values(teams).some(team => 
-      team.players.some(p => p.id === guestPlayerId)
-    );
-
+    // If guest is not in unassigned list and not in any team, their registration is gone (kicked, deleted, or reset).
+    // Prompt them to register a name again.
     if (!isAdmin && guestPlayerId && !unassigned[guestPlayerId] && !isPlayerInTeam) {
-      const totalLobbyParticipants = Object.keys(unassigned).length + Object.keys(teams).length;
-      if (totalLobbyParticipants === 0) {
-        CloudDb.registerPlayer(currentSettings.tournamentId, guestPlayerId, guestPlayerName);
-      } else {
-        // Player was removed/kicked by the admin. Clear identity so they see the register prompt again.
-        guestPlayerId = null;
-        guestPlayerName = null;
-        localStorage.removeItem('guest_player_id');
-        localStorage.removeItem('guest_player_name');
-        this.renderPhase1(roomData);
-        return;
-      }
+      guestPlayerId = null;
+      guestPlayerName = null;
+      localStorage.removeItem('guest_player_id');
+      localStorage.removeItem('guest_player_name');
+      this.renderPhase1(roomData);
+      return;
     }
 
     // 2. Render invitation state triggers
