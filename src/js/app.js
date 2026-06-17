@@ -194,8 +194,8 @@ const App = {
           syncDot.className = 'status-dot active';
           syncText.textContent = `Sync Room: ${currentSettings.tournamentId}`;
 
-          // Secure guest identity lock based on Firebase Auth UID
-          if (!isAdmin) {
+          // Secure guest identity lock based on Firebase Auth UID (only if they have registered a name)
+          if (!isAdmin && guestPlayerName) {
             guestPlayerId = CloudDb.getUid();
             localStorage.setItem('guest_player_id', guestPlayerId);
           }
@@ -312,8 +312,8 @@ const App = {
   renderPhase1(roomData) {
     const view = document.getElementById('player-manager-view');
     
-    // 1. Check if Identity is Locked
-    if (!guestPlayerId) {
+    // 1. Check if Identity is Locked (guests only)
+    if (!isAdmin && !guestPlayerId) {
       view.innerHTML = `
         <div class="glass-card" style="max-width: 450px; margin: 0 auto; text-align: center;">
           <h2>Enter Your Name</h2>
