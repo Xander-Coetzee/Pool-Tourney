@@ -234,6 +234,32 @@ export const CloudDb = {
     return update(ref(db), updates);
   },
 
+  async dissolveTeam(roomId, teamId, players) {
+    if (!db) return;
+    const updates = {};
+    updates[`rooms/${roomId}/teams/${teamId}`] = null;
+    players.forEach(p => {
+      updates[`rooms/${roomId}/unassigned_players/${p.id}`] = {
+        id: p.id,
+        name: p.name,
+        isGhost: p.isGhost || p.id.startsWith('ghost-') || false
+      };
+    });
+    return update(ref(db), updates);
+  },
+
+  async renameUnassignedPlayer(roomId, playerId, newName) {
+    if (!db) return;
+    const playerRef = ref(db, `rooms/${roomId}/unassigned_players/${playerId}/name`);
+    return set(playerRef, newName);
+  },
+
+  async renameTeam(roomId, teamId, newName) {
+    if (!db) return;
+    const teamRef = ref(db, `rooms/${roomId}/teams/${teamId}/name`);
+    return set(teamRef, newName);
+  },
+
   async confirmVerification(roomId, playerId) {
     if (!db) return;
     const confirmRef = ref(db, `rooms/${roomId}/verifications/confirmations/${playerId}`);

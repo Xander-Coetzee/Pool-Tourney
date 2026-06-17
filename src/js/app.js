@@ -415,8 +415,12 @@ const App = {
                 }
 
                 return `
-                  <li class="roster-item">
-                    <span class="roster-name">${escapeHTML(p.name)}</span>
+                  <li class="roster-item" style="padding: ${isAdmin ? '0.4rem 0.75rem' : '0.75rem 1rem'}">
+                    ${isAdmin ? `
+                      <input type="text" class="player-name-input-lobby" value="${escapeHTML(p.name)}" data-id="${p.id}" style="flex: 1; background: transparent; border: none; color: var(--color-text); font-weight: 500; padding: 0.35rem 0; font-size: 0.95rem; outline: none; margin-right: 0.5rem;">
+                    ` : `
+                      <span class="roster-name">${escapeHTML(p.name)}</span>
+                    `}
                     <div class="roster-actions">${actionsHTML}</div>
                   </li>
                 `;
@@ -431,12 +435,25 @@ const App = {
             </div>
             <ul class="teams-roster-list">
               ${teamList.length === 0 ? '<li class="empty-list">No teams formed yet.</li>' : ''}
-              ${teamList.map(t => `
-                <li class="roster-item">
-                  <span class="roster-name" style="color: var(--neon-purple);">${escapeHTML(t.name)}</span>
-                  <span style="font-size: 0.8rem; color: var(--color-muted);">Formed</span>
-                </li>
-              `).join('')}
+              ${teamList.map(t => {
+                let actionsHTML = '';
+                if (isAdmin) {
+                  actionsHTML = `
+                    <button class="btn-sm btn-remove btn-action-dissolve" data-id="${t.id}">&times; Dissolve</button>
+                  `;
+                }
+                
+                return `
+                  <li class="roster-item" style="padding: ${isAdmin ? '0.4rem 0.75rem' : '0.75rem 1rem'}">
+                    ${isAdmin ? `
+                      <input type="text" class="team-name-input" value="${escapeHTML(t.name)}" data-id="${t.id}" style="flex: 1; background: transparent; border: none; color: var(--neon-purple); font-weight: 600; padding: 0.35rem 0; font-size: 0.95rem; outline: none; margin-right: 0.5rem;">
+                    ` : `
+                      <span class="roster-name" style="color: var(--neon-purple);">${escapeHTML(t.name)}</span>
+                    `}
+                    <div class="roster-actions">${actionsHTML}</div>
+                  </li>
+                `;
+              }).join('')}
             </ul>
           </div>
         </div>
@@ -460,15 +477,20 @@ const App = {
   },
 
   bindPhase1Events(playerList, teamList) {
+    // Clone node to clear accumulated event listeners
+    const oldView = document.getElementById('player-manager-view');
+    const view = oldView.cloneNode(true);
+    oldView.parentNode.replaceChild(view, oldView);
+
     // Admin tools
-    const btnGhost = document.getElementById('btn-add-ghost');
+    const btnGhost = view.querySelector('#btn-add-ghost');
     if (btnGhost) {
       btnGhost.addEventListener('click', () => {
         CloudDb.addGhostPlayer(currentSettings.tournamentId);
       });
     }
 
-    const btnLock = document.getElementById('btn-lock-bracket');
+    const btnLock = view.querySelector('#btn-lock-bracket');
     if (btnLock) {
       btnLock.addEventListener('click', () => {
         if (teamList.length < 2) return;
@@ -489,7 +511,6 @@ const App = {
     }
 
     // List button delegation
-    const view = document.getElementById('player-manager-view');
     view.addEventListener('click', (e) => {
       // Invite to team click
       const btnInvite = e.target.closest('.btn-action-invite');
@@ -517,6 +538,50 @@ const App = {
         const id = btnRemove.getAttribute('data-id');
         CloudDb.removePlayer(currentSettings.tournamentId, id)
           .catch(err => console.error("Error removing player:", err));
+        return;
+      }
+
+      // Dissolve Team Click
+      const btnDissolve = e.target.closest('.btn-action-dissolve');
+      if (btnDissolve) {
+        const teamId = btnDissolve.getAttribute('data-id');
+        const team = teamList.find(t => t.id === teamId);
+        if (team && team.players) {
+          CloudDb.dissolveTeam(currentSettings.tournamentId, teamId, team.players)
+            .catch(err => console.error("Error dissolving team:", err));
+        }
+      }
+    });
+
+    // List change delegation for inline renaming
+    view.addEventListener('change', (e) => {
+      // Rename Unassigned Player
+      if (e.target.classList.contains('player-name-input-lobby')) {
+        const id = e.target.getAttribute('data-id');
+        const newName = e.target.value.trim();
+        if (!newName) return;
+        
+        CloudDb.renameUnassignedPlayer(currentSettings.tournamentId, id, newName)
+          .catch(err => console.error("Error renaming player:", err));
+      }
+      
+      // Rename Finalized Team
+      if (e.target.classList.contains('team-name-input')) {
+        const id = e.target.getAttribute('data-id');
+        const newName = e.target.value.trim();
+        if (!newName) return;
+        
+        CloudDb.renameTeam(currentSettings.tournamentId, id, newName)
+          .catch(err => console.error("Error renaming team:", err));
+      }
+    });
+
+    // Handle pressing Enter to commit renaming changes instantly
+    view.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (e.target.classList.contains('player-name-input-lobby') || e.target.classList.contains('team-name-input')) {
+          e.target.blur(); // Triggers the 'change' event
+        }
       }
     });
   },
