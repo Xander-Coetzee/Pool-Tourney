@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Party Tournament Host</title>
+  <link rel="stylesheet" href="src/css/styles.css">
+  <meta name="description" content="Host party tournaments with double-elimination brackets and live real-time synchronization.">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header Renders Brand & Connection State -->
+    <header>
+      <div class="brand-section">
+        <h1 id="app-title">Tournament Host</h1>
+        <p id="app-subtitle">Pool Tournament Module (Double-Elimination)</p>
+      </div>
+      <div class="sync-status-bar">
+        <span id="sync-dot" class="status-dot local"></span>
+        <span id="sync-text">Local Mode (Offline)</span>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-players">👤 Players</button>
+      <button class="tab-btn" data-tab="tab-center">⚡ Match Center</button>
+      <button class="tab-btn" data-tab="tab-bracket">📊 Visual Bracket</button>
+      <button class="tab-btn" data-tab="tab-settings">⚙ Settings</button>
+    </nav>
+
+    <!-- TAB 1: PLAYERS / TEAM MANAGER -->
+    <main id="tab-players" class="tab-panel active">
+      <div id="player-manager-view"></div>
+    </main>
+
+    <!-- TAB 2: MOBILE MATCH CENTER -->
+    <main id="tab-center" class="tab-panel">
+      <!-- Winner Showcase (Visible only when tournament finishes) -->
+      <div id="tournament-results-view" class="glass-card hidden" style="margin-bottom: 2rem;">
+        <h2>🏆 Tournament Champions!</h2>
+        <div id="rankings-container"></div>
+      </div>
+      
+      <div id="match-center-view"></div>
+    </main>
+
+    <!-- TAB 3: VISUAL BRACKET TREE -->
+    <main id="tab-bracket" class="tab-panel">
+      <!-- Winner Showcase -->
+      <div id="bracket-results-view" class="glass-card hidden" style="margin-bottom: 2rem;">
+        <h2>🏆 Tournament Champions!</h2>
+        <div id="bracket-rankings-container"></div>
+      </div>
+
+      <div class="glass-card">
+        <div id="bracket-view"></div>
+      </div>
+    </main>
+
+    <!-- TAB 4: CONFIGURATION SETTINGS -->
+    <main id="tab-settings" class="tab-panel">
+      <div id="settings-view"></div>
+    </main>
+  </div>
+
+  <!-- Score Logger Modal -->
+  <div id="score-logger-modal" class="modal-wrapper hidden"></div>
+
+  <!-- Fullscreen Overlays for Invites & Confirmations -->
+  <div id="fullscreen-overlay-container" class="hidden"></div>
+
+  <!-- App Core Module Loader -->
+  <script type="module" src="src/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tournament App Test Suite</title>
+  <style>
+    body {
+      background: #0b0c10;
+      color: #c5c6c7;
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    h1 {
+      color: #66fcf1;
+    }
+    .test-case {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: #1f2833;
+      border-radius: 8px;
+      border-left: 5px solid #8e94a5;
+    }
+    .test-case.pass {
+      border-left-color: #2ecc71;
+    }
+    .test-case.fail {
+      border-left-color: #e74c3c;
+    }
+    .test-name {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+    .test-case.pass .test-name {
+      color: #2ecc71;
+    }
+    .test-case.fail .test-name {
+      color: #e74c3c;
+    }
+    pre {
+      background: #0b0c10;
+      padding: 0.5rem;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .summary {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      padding: 1rem;
+      border-radius: 8px;
+      background: #1f2833;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tournament Engine Automated Test Suite</h1>
+  <div id="summary" class="summary">Running tests...</div>
+  <div id="results"></div>
+
+  <script type="module">
+    import { DoubleElimination } from './src/js/tournaments/doubleElimination.js';
+
+    const resultsDiv = document.getElementById('results');
+    const summaryDiv = document.getElementById('summary');
+    let passCount = 0;
+    let failCount = 0;
+
+    function assert(condition, message) {
+      if (!condition) {
+        throw new Error(message || "Assertion failed");
+      }
+    }
+
+    function runTest(name, testFn) {
+      const el = document.createElement('div');
+      el.className = 'test-case';
+      
+      try {
+        testFn();
+        el.className += ' pass';
+        el.innerHTML = `<div class="test-name">✔ ${name}</div>`;
+        passCount++;
+      } catch (e) {
+        el.className += ' fail';
+        el.innerHTML = `
+          <div class="test-name">✘ ${name}</div>
+          <p>Error: ${e.message}</p>
+          <pre>${e.stack}</pre>
+        `;
+        failCount++;
+      }
+      
+      resultsDiv.appendChild(el);
+      updateSummary();
+    }
+
+    function updateSummary() {
+      summaryDiv.innerHTML = `
+        <strong>Total Tests:</strong> ${passCount + failCount} | 
+        <span style="color: #2ecc71;"><strong>Passed:</strong> ${passCount}</span> | 
+        <span style="color: #e74c3c;"><strong>Failed:</strong> ${failCount}</span>
+      `;
+    }
+
+    // --- TEST SUITE ---
+
+    runTest("DoubleElimination Initialization & Standard Seeding (4 Players)", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' },
+        { id: 'p4', name: 'David' }
+      ];
+      tournament.initialize(players);
+
+      assert(tournament.size === 4, "Size should be 4");
+      assert(tournament.roundsCount.winners === 2, "Winners rounds count should be 2");
+      assert(tournament.roundsCount.losers === 2, "Losers rounds count should be 2");
+
+      // Verify Round 1 seeding:
+      // Seeding order for 4: 1, 4, 2, 3
+      // Match 1: Alice (1) vs David (4)
+      // Match 2: Bob (2) vs Charlie (3)
+      const w1 = tournament.matches['w-1-1'];
+      const w2 = tournament.matches['w-1-2'];
+
+      assert(w1.p1.id === 'p1', "w-1-1 P1 should be p1");
+      assert(w1.p2.id === 'p4', "w-1-1 P2 should be p4");
+      assert(w2.p1.id === 'p2', "w-1-2 P1 should be p2");
+      assert(w2.p2.id === 'p3', "w-1-2 P2 should be p3");
+    });
+
+    runTest("Bye Propagation & Auto-Advancement (5 Players)", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' },
+        { id: 'p4', name: 'David' },
+        { id: 'p5', name: 'Eve' }
+      ];
+      // Padded to size 8. Byes = 3.
+      // Seeding for 8: 1, 8, 4, 5, 2, 7, 3, 6
+      // Seeds: Alice(1), Bob(2), Charlie(3), David(4), Eve(5), Bye(6), Bye(7), Bye(8)
+      // Matches:
+      // w-1-1: Alice(1) vs Bye(8) -> Alice should auto-win!
+      // w-1-2: David(4) vs Eve(5) -> Playable
+      // w-1-3: Bob(2) vs Bye(7) -> Bob should auto-win!
+      // w-1-4: Charlie(3) vs Bye(6) -> Charlie should auto-win!
+
+      tournament.initialize(players);
+
+      assert(tournament.size === 8, "Size should be 8");
+      
+      const w11 = tournament.matches['w-1-1'];
+      assert(w11.status === 'bye', "w-1-1 should be auto-completed as bye");
+      assert(w11.winnerId === 'p1', "w-1-1 winner should be Alice (p1)");
+
+      const w13 = tournament.matches['w-1-3'];
+      assert(w13.status === 'bye', "w-1-3 should be bye");
+      assert(w13.winnerId === 'p2', "w-1-3 winner should be Bob (p2)");
+
+      const w14 = tournament.matches['w-1-4'];
+      assert(w14.status === 'bye', "w-1-4 should be bye");
+      assert(w14.winnerId === 'p3', "w-1-4 winner should be Charlie (p3)");
+
+      // Check Winners Round 2 (w-2-1 & w-2-2)
+      // w-2-1: Winner of w-1-1 (Alice) vs Winner of w-1-2 (pending David/Eve)
+      // w-2-2: Winner of w-1-3 (Bob) vs Winner of w-1-4 (Charlie)
+      const w21 = tournament.matches['w-2-1'];
+      const w22 = tournament.matches['w-2-2'];
+
+      assert(w21.p1.id === 'p1', "w-2-1 P1 should be p1 (Alice)");
+      assert(w21.p2 === null, "w-2-1 P2 should be null (waiting for David/Eve)");
+      assert(w21.status === 'pending', "w-2-1 should be pending");
+
+      assert(w22.p1.id === 'p2', "w-2-2 P1 should be p2 (Bob)");
+      assert(w22.p2.id === 'p3', "w-2-2 P2 should be p3 (Charlie)");
+      assert(w22.status === 'scheduled', "w-2-2 should be scheduled (playable) since both players advanced!");
+    });
+
+    runTest("Double Elimination Flow & Winner Advancement (4 Players)", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' },
+        { id: 'p4', name: 'David' }
+      ];
+      tournament.initialize(players);
+
+      // w-1-1: Alice vs David -> Alice wins 3-1
+      // w-1-2: Bob vs Charlie -> Bob wins 3-2
+      tournament.logMatchResult('w-1-1', 3, 1);
+      tournament.logMatchResult('w-1-2', 3, 2);
+
+      // Verify Winners Round 2 (Winners Finals):
+      // w-2-1: Alice vs Bob
+      const w21 = tournament.matches['w-2-1'];
+      assert(w21.p1.id === 'p1', "w-2-1 P1 should be Alice");
+      assert(w21.p2.id === 'p2', "w-2-1 P2 should be Bob");
+
+      // Verify Losers Round 1:
+      // l-1-1: Loser of w-1-1 (David) vs Loser of w-1-2 (Charlie)
+      const l11 = tournament.matches['l-1-1'];
+      assert(l11.p1.id === 'p4', "l-1-1 P1 should be David");
+      assert(l11.p2.id === 'p3', "l-1-1 P2 should be Charlie");
+
+      // Play l-1-1: Charlie wins 3-0. David is eliminated.
+      tournament.logMatchResult('l-1-1', 0, 3);
+      assert(l11.winnerId === 'p3', "l-1-1 winner should be Charlie");
+
+      // Play Winners Finals w-2-1: Alice wins 3-0. Bob drops to Losers.
+      tournament.logMatchResult('w-2-1', 3, 0);
+
+      // Verify Losers Round 2 (Losers Finals):
+      // l-2-1: Winner of l-1-1 (Charlie) vs Loser of w-2-1 (Bob)
+      const l21 = tournament.matches['l-2-1'];
+      assert(l21.p1.id === 'p3', "l-2-1 P1 should be Charlie");
+      assert(l21.p2.id === 'p2', "l-2-1 P2 should be Bob");
+    });
+
+    runTest("Grand Finals Normal Finish (Winners champion wins GF1)", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' },
+        { id: 'p4', name: 'David' }
+      ];
+      tournament.initialize(players);
+
+      tournament.logMatchResult('w-1-1', 3, 0); // Alice wins, David drops
+      tournament.logMatchResult('w-1-2', 3, 0); // Bob wins, Charlie drops
+      tournament.logMatchResult('l-1-1', 3, 0); // David wins, Charlie eliminated
+      tournament.logMatchResult('w-2-1', 3, 0); // Alice wins, Bob drops
+      tournament.logMatchResult('l-2-1', 3, 0); // David wins, Bob eliminated
+
+      // GF1: Alice (Winners) vs David (Losers)
+      const gf1 = tournament.matches['gf-1-1'];
+      assert(gf1.p1.id === 'p1', "gf-1-1 P1 is Alice");
+      assert(gf1.p2.id === 'p4', "gf-1-1 P2 is David");
+
+      // Alice wins GF1
+      tournament.logMatchResult('gf-1-1', 3, 1);
+
+      assert(tournament.isFinished() === true, "Tournament should be completed");
+      const rankings = tournament.getRankings();
+      assert(rankings[0].id === 'p1', "Champion should be Alice");
+      assert(rankings[1].id === 'p4', "Runner up should be David");
+    });
+
+    runTest("Grand Finals Reset (Losers champion wins GF1)", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' },
+        { id: 'p4', name: 'David' }
+      ];
+      tournament.initialize(players);
+
+      tournament.logMatchResult('w-1-1', 3, 0); // Alice wins
+      tournament.logMatchResult('w-1-2', 3, 0); // Bob wins
+      tournament.logMatchResult('l-1-1', 3, 0); // David wins
+      tournament.logMatchResult('w-2-1', 3, 0); // Alice wins, Bob drops
+      tournament.logMatchResult('l-2-1', 3, 0); // David wins, Bob eliminated
+
+      // GF1: Alice (Winners) vs David (Losers)
+      // David (Losers) wins GF1. Should trigger bracket reset (spawn gf-1-2)
+      tournament.logMatchResult('gf-1-1', 1, 3);
+
+      assert(tournament.isFinished() === false, "Tournament should NOT be finished yet (requires reset match)");
+      
+      const gf2 = tournament.matches['gf-1-2'];
+      assert(gf2 !== undefined, "gf-1-2 should be spawned");
+      assert(gf2.p1.id === 'p1', "gf-1-2 P1 should be Alice");
+      assert(gf2.p2.id === 'p4', "gf-1-2 P2 should be David");
+      assert(gf2.status === 'scheduled', "gf-1-2 should be scheduled");
+
+      // Play gf-1-2: David wins and becomes champion!
+      tournament.logMatchResult('gf-1-2', 1, 3);
+      assert(tournament.isFinished() === true, "Tournament is now finished");
+      const rankings = tournament.getRankings();
+      assert(rankings[0].id === 'p4', "Champion should be David");
+      assert(rankings[1].id === 'p1', "Runner up should be Alice");
+    });
+
+    runTest("Score Edit & Rollback Validation", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' },
+        { id: 'p4', name: 'David' }
+      ];
+      tournament.initialize(players);
+
+      // Play w-1-1: Alice wins.
+      tournament.logMatchResult('w-1-1', 3, 0);
+      assert(tournament.canEditMatch('w-1-1') === true, "w-1-1 should be editable before downstream starts");
+
+      // Play w-1-2: Bob wins.
+      tournament.logMatchResult('w-1-2', 3, 0);
+
+      // Play w-2-1 (Winners Finals, Alice vs Bob): Alice wins.
+      // This is downstream of w-1-1 (Alice advanced here).
+      tournament.logMatchResult('w-2-1', 3, 1);
+
+      // Now check if w-1-1 can be edited.
+      // Winner of w-1-1 (Alice) played in w-2-1, which is completed. So edit should be BLOCKED.
+      assert(tournament.canEditMatch('w-1-1') === false, "w-1-1 edit should be BLOCKED because Alice played in w-2-1");
+
+      // Rollback w-2-1
+      tournament.rollbackMatch('w-2-1');
+      assert(tournament.matches['w-2-1'].status === 'scheduled', "w-2-1 should be back to scheduled");
+      assert(tournament.matches['w-2-1'].p1Score === null, "w-2-1 score should be null");
+
+      // Now that w-2-1 is reset (no downstream gameplay), check if w-1-1 is editable again.
+      assert(tournament.canEditMatch('w-1-1') === true, "w-1-1 should be EDITABLE again after downstream rollback");
+    });
+
+    runTest("2-Player ($P=2$) Bracket Routing Edge Case", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' }
+      ];
+      tournament.initialize(players);
+
+      assert(tournament.size === 2, "Size is 2");
+      assert(tournament.matches['w-1-1'].nextMatchIdLoser === 'gf-1-1', "Loser of w-1-1 goes to gf-1-1");
+
+      // Play w-1-1: Alice wins 3-1. Bob drops to Losers.
+      tournament.logMatchResult('w-1-1', 3, 1);
+
+      const gf1 = tournament.matches['gf-1-1'];
+      assert(gf1.p1.id === 'p1', "gf-1-1 P1 is Alice");
+      assert(gf1.p2.id === 'p2', "gf-1-1 P2 is Bob");
+      assert(gf1.status === 'scheduled', "gf-1-1 is scheduled");
+    });
+
+    runTest("Bye Rollback Downstream Check", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' }
+      ];
+      // $P=4$. Alice(1), Bob(2), Charlie(3), Bye(4).
+      // Matches:
+      // w-1-1: Alice(1) vs Bye(4) -> Alice auto-wins, Bye drops to l-1-1.
+      // w-1-2: Bob(2) vs Charlie(3) -> Playable
+      // l-1-1: Bye(4) vs Loser of w-1-2.
+      // Since Bye is in l-1-1, whoever loses w-1-2 automatically wins l-1-1 (Bye propagation)!
+      tournament.initialize(players);
+
+      assert(tournament.matches['w-1-1'].status === 'bye', "w-1-1 is bye");
+      assert(tournament.matches['w-1-1'].winnerId === 'p1', "w-1-1 winner is Alice");
+
+      // Play w-1-2: Bob wins, Charlie drops to l-1-1.
+      tournament.logMatchResult('w-1-2', 3, 1);
+
+      // l-1-1: Bye vs Charlie -> Charlie auto-wins (bye propagation!)
+      assert(tournament.matches['l-1-1'].status === 'bye', "l-1-1 is bye");
+      assert(tournament.matches['l-1-1'].winnerId === 'p3', "l-1-1 winner is Charlie");
+      
+      // Since Charlie auto-wins l-1-1, he goes to l-2-1 (Losers Finals).
+      assert(tournament.matches['l-2-1'].p1.id === 'p3', "l-2-1 P1 is Charlie");
+
+      // Now rollback w-1-2 (resets Bob vs Charlie).
+      // This should recursively roll back l-1-1 (which was a bye).
+      // And since l-1-1 is rolled back, Charlie must be retracted from l-2-1!
+      tournament.rollbackMatch('w-1-2');
+
+      assert(tournament.matches['w-1-2'].status === 'scheduled', "w-1-2 is back to scheduled");
+      assert(tournament.matches['l-1-1'].status === 'pending', "l-1-1 is back to pending");
+      assert(tournament.matches['l-2-1'].p1 === null, "Charlie is retracted from l-2-1");
+    });
+
+    runTest("Grand Finals Lock Checks (gf-1-1 & gf-1-2)", () => {
+      const tournament = new DoubleElimination();
+      const players = [
+        { id: 'p1', name: 'Alice' },
+        { id: 'p2', name: 'Bob' },
+        { id: 'p3', name: 'Charlie' },
+        { id: 'p4', name: 'David' }
+      ];
+      tournament.initialize(players);
+
+      tournament.logMatchResult('w-1-1', 3, 0); // Alice wins
+      tournament.logMatchResult('w-1-2', 3, 0); // Bob wins
+      tournament.logMatchResult('l-1-1', 3, 0); // David wins
+      tournament.logMatchResult('w-2-1', 3, 0); // Alice wins
+      tournament.logMatchResult('l-2-1', 3, 0); // David wins
+
+      // GF1: Alice vs David. David (Losers) wins. Spawns gf-1-2
+      tournament.logMatchResult('gf-1-1', 1, 3);
+      assert(tournament.canEditMatch('gf-1-1') === true, "gf-1-1 is editable because gf-1-2 hasn't started");
+
+      // Play gf-1-2: Alice wins.
+      tournament.logMatchResult('gf-1-2', 3, 1);
+      assert(tournament.isFinished() === true, "Tournament is complete");
+      assert(tournament.canEditMatch('gf-1-1') === false, "gf-1-1 is now locked because gf-1-2 is completed");
+    });
+
+    runTest("HTML Escaping Security Utility", () => {
+      // Import test for escapeHTML
+      const escape = (str) => {
+        return str.toString()
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      };
+      assert(escape("<script>") === "&lt;script&gt;", "Escapes script tag");
+      assert(escape("Alice & Bob") === "Alice &amp; Bob", "Escapes ampersand");
+      assert(escape('Name "Quote"') === "Name &quot;Quote&quot;", "Escapes double quote");
+    });
+  </script>
+</body>
+</html>
