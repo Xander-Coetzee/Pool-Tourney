@@ -1,12 +1,13 @@
 import { escapeHTML } from './domUtils.js';
 
 export const BracketRenderer = {
-  init(bracketContainerId, matchCenterContainerId, tournament, onMatchClickCallback, onStartMatchCallback) {
+  init(bracketContainerId, matchCenterContainerId, tournament, onMatchClickCallback, onStartMatchCallback, onResetTournamentCallback) {
     this.bracketContainer = document.getElementById(bracketContainerId);
     this.matchCenterContainer = document.getElementById(matchCenterContainerId);
     this.tournament = tournament;
     this.onMatchClick = onMatchClickCallback;
     this.onStartMatch = onStartMatchCallback;
+    this.onResetTournament = onResetTournamentCallback;
     this.isAdmin = false;
     this.activeMatchId = null;
     this.setupEventDelegation();
@@ -22,6 +23,16 @@ export const BracketRenderer = {
 
   setupEventDelegation() {
     const handleDelegation = (e) => {
+      // Check for Reset Tournament click
+      const btnReset = e.target.closest('#btn-reset-center');
+      if (btnReset) {
+        e.stopPropagation();
+        if (this.onResetTournament) {
+          this.onResetTournament();
+        }
+        return;
+      }
+
       // Check for round tab click
       const tabBtn = e.target.closest('.round-tab-btn');
       if (tabBtn) {
@@ -373,6 +384,17 @@ export const BracketRenderer = {
     `;
 
     html += '</div>';
+
+    if (this.isAdmin) {
+      html += `
+        <div style="margin-top: 2.5rem; text-align: center; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; padding-bottom: 2rem;">
+          <button id="btn-reset-center" class="btn btn-danger" style="width: 100%; max-width: 320px; font-weight: 700;">
+            Reset & End Tournament
+          </button>
+        </div>
+      `;
+    }
+
     this.matchCenterContainer.innerHTML = html;
   },
 

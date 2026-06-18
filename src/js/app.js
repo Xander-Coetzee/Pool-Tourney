@@ -98,14 +98,7 @@ const App = {
       },
       // Reset tournament callback
       () => {
-        StorageService.clearTournamentState();
-        tournament.loadState(null);
-        if (currentSettings.mode === 'firebase' && CloudDb.isConfigured()) {
-          CloudDb.resetTournament(currentSettings.tournamentId)
-            .catch(err => console.error("Error resetting remote tournament:", err));
-        } else {
-          this.renderLocalPlayersManager();
-        }
+        this.executeReset();
       },
       // Rename player callback
       (id, name) => {
@@ -133,6 +126,10 @@ const App = {
         }
         CloudDb.setActiveMatch(currentSettings.tournamentId, matchId)
           .catch(err => console.error("Error setting active match:", err));
+      },
+      // Reset tournament handler
+      () => {
+        this.resetTournament();
       }
     );
 
@@ -157,6 +154,26 @@ const App = {
         }
       }
     );
+  },
+
+  resetTournament() {
+    if (currentSettings.mode === 'firebase' && CloudDb.isConfigured()) {
+      if (!isAdmin) return; // Safeguard
+    }
+    if (confirm("Are you sure you want to end and reset the active tournament? All current progress and scores will be permanently deleted.")) {
+      this.executeReset();
+    }
+  },
+
+  executeReset() {
+    StorageService.clearTournamentState();
+    tournament.loadState(null);
+    if (currentSettings.mode === 'firebase' && CloudDb.isConfigured()) {
+      CloudDb.resetTournament(currentSettings.tournamentId)
+        .catch(err => console.error("Error resetting remote tournament:", err));
+    } else {
+      this.renderLocalPlayersManager();
+    }
   },
 
   saveAndSyncState() {
@@ -923,6 +940,14 @@ const App = {
 
     if (tournament.isStarted && tournament.isFinished()) {
       const rankings = tournament.getRankings();
+      const resetBtnHTML = isAdmin ? `
+        <div style="margin-top: 1.5rem; text-align: center;">
+          <button id="btn-reset-results" class="btn btn-danger" style="width: 100%; max-width: 280px; font-weight: 700;">
+            Reset & Start New Tournament
+          </button>
+        </div>
+      ` : '';
+
       const rankingsHTML = `
         <ul class="rankings-list">
           ${rankings.map(r => `
@@ -932,12 +957,22 @@ const App = {
             </li>
           `).join('')}
         </ul>
+        ${resetBtnHTML}
       `;
 
       rankingsCont1.innerHTML = rankingsHTML;
       rankingsCont2.innerHTML = rankingsHTML;
       resultsView1.classList.remove('hidden');
       resultsView2.classList.remove('hidden');
+
+      if (isAdmin) {
+        const resetBtns = document.querySelectorAll('#btn-reset-results');
+        resetBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.resetTournament();
+          });
+        });
+      }
     } else {
       resultsView1.classList.add('hidden');
       resultsView2.classList.add('hidden');
