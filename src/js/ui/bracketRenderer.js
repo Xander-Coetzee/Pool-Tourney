@@ -237,8 +237,8 @@ export const BracketRenderer = {
     const p1Seed = p1 && !p1.isBye ? `#${p1.seed}` : '';
     const p2Seed = p2 && !p2.isBye ? `#${p2.seed}` : '';
 
-    const p1Score = match.p1Score !== null ? match.p1Score : '';
-    const p2Score = match.p2Score !== null ? match.p2Score : '';
+    const p1Score = match.p1Score != null ? match.p1Score : '';
+    const p2Score = match.p2Score != null ? match.p2Score : '';
 
     const isCompleted = match.status === 'completed';
     const isScheduled = match.status === 'scheduled';
@@ -425,13 +425,13 @@ export const BracketRenderer = {
           <div class="center-player-slot ${p1Winner ? 'winner' : ''}">
             <span class="seed">${p1Seed}</span>
             <span class="name truncate">${p1Name}</span>
-            <span class="score">${match.p1Score !== null ? match.p1Score : '-'}</span>
+            <span class="score">${match.p1Score != null ? match.p1Score : '-'}</span>
           </div>
           <div class="versus">VS</div>
           <div class="center-player-slot ${p2Winner ? 'winner' : ''}">
             <span class="seed">${p2Seed}</span>
             <span class="name truncate">${p2Name}</span>
-            <span class="score">${match.p2Score !== null ? match.p2Score : '-'}</span>
+            <span class="score">${match.p2Score != null ? match.p2Score : '-'}</span>
           </div>
         </div>
 

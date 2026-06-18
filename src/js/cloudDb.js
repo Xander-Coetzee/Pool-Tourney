@@ -218,7 +218,13 @@ export const CloudDb = {
   },
 
   // --- PHASE 2 METHODS ---
-  async startTournament(roomId, teams, matches, size, roundsCount) {
+  async setMatchFormat(roomId, format) {
+    if (!db) return;
+    const formatRef = ref(db, `rooms/${roomId}/matchFormat`);
+    return set(formatRef, format);
+  },
+
+  async startTournament(roomId, teams, matches, size, roundsCount, matchFormat = 'bo1') {
     if (!db) return;
     
     const updates = {};
@@ -228,7 +234,8 @@ export const CloudDb = {
       matches: matches,
       isStarted: true,
       size: size,
-      roundsCount: roundsCount
+      roundsCount: roundsCount,
+      matchFormat: matchFormat
     };
     updates[`rooms/${roomId}/activeMatchId`] = null;
     updates[`rooms/${roomId}/verifications`] = null;

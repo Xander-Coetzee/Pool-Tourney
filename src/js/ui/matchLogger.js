@@ -15,8 +15,8 @@ export const MatchLogger = {
     if (!match) return;
 
     this.currentMatchId = matchId;
-    this.p1Score = match.p1Score !== null ? match.p1Score : 0;
-    this.p2Score = match.p2Score !== null ? match.p2Score : 0;
+    this.p1Score = match.p1Score != null ? match.p1Score : 0;
+    this.p2Score = match.p2Score != null ? match.p2Score : 0;
 
     this.render(match);
     this.modal.classList.remove('hidden');
@@ -32,8 +32,44 @@ export const MatchLogger = {
     const isEdit = match.status === 'completed';
     const p1Name = match.p1 ? escapeHTML(match.p1.name) : 'Unknown';
     const p2Name = match.p2 ? escapeHTML(match.p2.name) : 'Unknown';
-    const p1Seed = match.p1 && !match.p1.isBye ? `#${match.p1.seed}` : '';
-    const p2Seed = match.p2 && !match.p2.isBye ? `#${match.p2.seed}` : '';
+    const matchFormat = this.tournament.matchFormat || 'bo1';
+
+    let outcomesHTML = '';
+    if (matchFormat === 'bo3') {
+      outcomesHTML = `
+        <div class="result-options-container">
+          <button class="result-option-card ${this.p1Score === 2 && this.p2Score === 0 ? 'active' : ''}" data-p1="2" data-p2="0">
+            <span class="option-team">${p1Name} Wins</span>
+            <span class="option-score">2 - 0</span>
+          </button>
+          <button class="result-option-card ${this.p1Score === 2 && this.p2Score === 1 ? 'active' : ''}" data-p1="2" data-p2="1">
+            <span class="option-team">${p1Name} Wins</span>
+            <span class="option-score">2 - 1</span>
+          </button>
+          <button class="result-option-card ${this.p1Score === 0 && this.p2Score === 2 ? 'active' : ''}" data-p1="0" data-p2="2">
+            <span class="option-team">${p2Name} Wins</span>
+            <span class="option-score">0 - 2</span>
+          </button>
+          <button class="result-option-card ${this.p1Score === 1 && this.p2Score === 2 ? 'active' : ''}" data-p1="1" data-p2="2">
+            <span class="option-team">${p2Name} Wins</span>
+            <span class="option-score">1 - 2</span>
+          </button>
+        </div>
+      `;
+    } else {
+      outcomesHTML = `
+        <div class="result-options-container">
+          <button class="result-option-card ${this.p1Score === 1 && this.p2Score === 0 ? 'active' : ''}" data-p1="1" data-p2="0">
+            <span class="option-team">${p1Name} Wins</span>
+            <span class="option-score">1 - 0</span>
+          </button>
+          <button class="result-option-card ${this.p1Score === 0 && this.p2Score === 1 ? 'active' : ''}" data-p1="0" data-p2="1">
+            <span class="option-team">${p2Name} Wins</span>
+            <span class="option-score">0 - 1</span>
+          </button>
+        </div>
+      `;
+    }
 
     this.modal.innerHTML = `
       <div class="modal-backdrop"></div>
@@ -41,36 +77,11 @@ export const MatchLogger = {
         <button class="btn-close-modal" id="modal-close">&times;</button>
         <h2>${isEdit ? 'Edit Match Score' : 'Log Match Score'}</h2>
         <p class="match-info-subtitle">${match.id.toUpperCase()}: ${p1Name} vs ${p2Name}</p>
+        <p class="format-badge" style="display: inline-block; font-size: 0.75rem; text-transform: uppercase; color: var(--neon-blue); border: 1px solid rgba(102, 252, 241, 0.2); padding: 0.15rem 0.5rem; border-radius: 4px; margin-bottom: 1rem; background: rgba(102, 252, 241, 0.05);">${matchFormat === 'bo3' ? 'Best of 3' : 'Best of 1'}</p>
 
-        <div class="steppers-container">
-          <!-- Player 1 Stepper -->
-          <div class="stepper-box">
-            <span class="stepper-seed">${p1Seed}</span>
-            <span class="stepper-name truncate">${p1Name}</span>
-            <div class="stepper-controls">
-              <button class="btn btn-stepper" id="p1-minus">-</button>
-              <span class="stepper-val" id="p1-val">${this.p1Score}</span>
-              <button class="btn btn-stepper" id="p1-plus">+</button>
-            </div>
-          </div>
+        ${outcomesHTML}
 
-          <div class="stepper-vs">VS</div>
-
-          <!-- Player 2 Stepper -->
-          <div class="stepper-box">
-            <span class="stepper-seed">${p2Seed}</span>
-            <span class="stepper-name truncate">${p2Name}</span>
-            <div class="stepper-controls">
-              <button class="btn btn-stepper" id="p2-minus">-</button>
-              <span class="stepper-val" id="p2-val">${this.p2Score}</span>
-              <button class="btn btn-stepper" id="p2-plus">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div id="validation-error" class="validation-error hidden"></div>
-
-        <div class="confirmation-checkbox-container">
+        <div class="confirmation-checkbox-container" style="margin-top: 1rem;">
           <label class="custom-checkbox">
             <input type="checkbox" id="chk-confirm-lock">
             <span class="checkmark"></span>
@@ -92,66 +103,31 @@ export const MatchLogger = {
   bindEvents(match) {
     const closeBtn = document.getElementById('modal-close');
     const backdrop = this.modal.querySelector('.modal-backdrop');
-    
-    const p1Minus = document.getElementById('p1-minus');
-    const p1Plus = document.getElementById('p1-plus');
-    const p1Val = document.getElementById('p1-val');
-
-    const p2Minus = document.getElementById('p2-minus');
-    const p2Plus = document.getElementById('p2-plus');
-    const p2Val = document.getElementById('p2-val');
-
-    const errorDiv = document.getElementById('validation-error');
     const chkConfirm = document.getElementById('chk-confirm-lock');
     const saveBtn = document.getElementById('btn-save-score');
     const rollbackBtn = document.getElementById('btn-rollback-score');
+    const optionCards = this.modal.querySelectorAll('.result-option-card');
 
     const updateUI = () => {
-      p1Val.textContent = this.p1Score;
-      p2Val.textContent = this.p2Score;
-
-      let err = '';
-      if (this.p1Score === this.p2Score) {
-        err = "Ties are not allowed. One player must win.";
-      } else if (this.p1Score < 0 || this.p2Score < 0) {
-        err = "Scores cannot be negative.";
-      }
-
-      if (err) {
-        errorDiv.textContent = err;
-        errorDiv.classList.remove('hidden');
-        saveBtn.disabled = true;
-      } else {
-        errorDiv.classList.add('hidden');
-        saveBtn.disabled = !chkConfirm.checked;
-      }
+      // Check if any option is selected
+      const hasSelection = (this.p1Score > 0 || this.p2Score > 0);
+      saveBtn.disabled = !hasSelection || !chkConfirm.checked;
     };
 
     closeBtn.addEventListener('click', () => this.close());
     backdrop.addEventListener('click', () => this.close());
 
-    // P1 Controls
-    p1Minus.addEventListener('click', () => {
-      if (this.p1Score > 0) {
-        this.p1Score--;
+    // Result Card Clicks
+    optionCards.forEach(card => {
+      card.addEventListener('click', () => {
+        optionCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        
+        this.p1Score = parseInt(card.getAttribute('data-p1'), 10);
+        this.p2Score = parseInt(card.getAttribute('data-p2'), 10);
+        
         updateUI();
-      }
-    });
-    p1Plus.addEventListener('click', () => {
-      this.p1Score++;
-      updateUI();
-    });
-
-    // P2 Controls
-    p2Minus.addEventListener('click', () => {
-      if (this.p2Score > 0) {
-        this.p2Score--;
-        updateUI();
-      }
-    });
-    p2Plus.addEventListener('click', () => {
-      this.p2Score++;
-      updateUI();
+      });
     });
 
     chkConfirm.addEventListener('change', () => {

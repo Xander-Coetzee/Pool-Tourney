@@ -487,6 +487,13 @@ const App = {
 
         <div class="manager-actions">
           ${isAdmin ? `
+            <div class="format-selector" style="margin-bottom: 1.5rem; text-align: center;">
+              <label style="display: block; font-size: 0.85rem; color: var(--color-muted); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px;">Match Format</label>
+              <div class="mode-selector" style="display: inline-flex; gap: 0.5rem; justify-content: center;">
+                <button id="btn-format-bo1" class="btn btn-sm btn-secondary ${(roomData?.matchFormat || 'bo1') === 'bo1' ? 'active' : ''}">Best of 1</button>
+                <button id="btn-format-bo3" class="btn btn-sm btn-secondary ${(roomData?.matchFormat || 'bo1') === 'bo3' ? 'active' : ''}">Best of 3</button>
+              </div>
+            </div>
             <button id="btn-lock-bracket" class="btn btn-success" ${teamList.length < 2 ? 'disabled' : ''}>
               Lock Teams & Start Tournament (${teamList.length} Teams)
             </button>
@@ -517,13 +524,27 @@ const App = {
       });
     }
 
+    const btnBo1 = view.querySelector('#btn-format-bo1');
+    const btnBo3 = view.querySelector('#btn-format-bo3');
+    if (btnBo1 && btnBo3) {
+      btnBo1.addEventListener('click', () => {
+        CloudDb.setMatchFormat(currentSettings.tournamentId, 'bo1')
+          .catch(err => console.error("Error setting format to bo1:", err));
+      });
+      btnBo3.addEventListener('click', () => {
+        CloudDb.setMatchFormat(currentSettings.tournamentId, 'bo3')
+          .catch(err => console.error("Error setting format to bo3:", err));
+      });
+    }
+
     const btnLock = view.querySelector('#btn-lock-bracket');
     if (btnLock) {
       btnLock.addEventListener('click', () => {
         if (teamList.length < 2) return;
         
-        // Initialize bracket layout local engine
-        tournament.initialize(teamList);
+        // Initialize bracket layout local engine with selected format
+        const format = roomData?.matchFormat || 'bo1';
+        tournament.initialize(teamList, format);
         const state = tournament.getState();
         
         // Commit start to database
@@ -532,7 +553,8 @@ const App = {
           state.players,
           state.matches,
           state.size,
-          state.roundsCount
+          state.roundsCount,
+          format
         ).catch(err => console.error("Error starting tournament:", err));
       });
     }

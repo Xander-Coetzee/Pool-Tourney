@@ -9,9 +9,11 @@ export class DoubleElimination extends BaseTournament {
     this.isStarted = false;
     this.size = 0;          // Power of 2 bracket size
     this.roundsCount = { winners: 0, losers: 0 };
+    this.matchFormat = 'bo1'; // 'bo1' or 'bo3'
   }
 
-  initialize(players) {
+  initialize(players, matchFormat = 'bo1') {
+    this.matchFormat = matchFormat;
     this.players = players.map((p, idx) => ({
       id: p.id || `p-${Date.now()}-${idx}`,
       name: p.name,
@@ -54,7 +56,8 @@ export class DoubleElimination extends BaseTournament {
       matches: this.matches,
       isStarted: this.isStarted,
       size: this.size,
-      roundsCount: this.roundsCount
+      roundsCount: this.roundsCount,
+      matchFormat: this.matchFormat
     };
   }
 
@@ -65,6 +68,7 @@ export class DoubleElimination extends BaseTournament {
     this.isStarted = state.isStarted || false;
     this.size = state.size || 0;
     this.roundsCount = state.roundsCount || { winners: 0, losers: 0 };
+    this.matchFormat = state.matchFormat || 'bo1';
 
     this.playerMap = {};
     this.players.forEach(p => {
